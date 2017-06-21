@@ -122,3 +122,5 @@ rf.setBandwidth("250");
 rf.setSpreadingFactor(11);
 ```
 
+# License
+[license](https://github.com/electricimp/RFM9x/blob/develp/LICENSE)
