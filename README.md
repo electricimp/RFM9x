@@ -57,7 +57,7 @@ rf.receiveData(); // receiveHandler will be called when a valid packet is receiv
 The readReg(address) method returns the value stored at the register addressed by the passed address parameter
 #### Example
 ```
-rf.readReg(RFM9x.RFM9X_REG_HEADER_CNT_VALUE_MSB); // retrieve the MSB of the number of valid headers received since last
+rf.readReg(RFM9X_REG_HEADER_CNT_VALUE_MSB); // retrieve the MSB of the number of valid headers received since last
 // transition into RX mode
 ```
 
@@ -66,7 +66,7 @@ The writeReg(address, data) method writes the data parameter to the register add
 #### Example
 ```
 local data = 0x84;
-rf.writeReg(RFM9x.RFM9X_REG_OP_MODE, data);
+rf.writeReg(RFM9X_REG_OP_MODE, data);
 ```
 
 ## maskAllInterrupts() 

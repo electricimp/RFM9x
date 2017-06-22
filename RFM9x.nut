@@ -1,29 +1,12 @@
-class RFM9x {
-    
-    _spiModule = null;
-    _cs = null;
-    _irqPin = null;
-    _receiveHandler = null;
-    _sendFinished = true;
-    _error = false;
-
     const RFM9X_FIFO = 0x00;
-    
+
     // SPI masks
-    const WRITE_MASK = 0x80;
-    const READ_MASK = 0x00;
+    const RFM9X_WRITE_MASK = 0x80;
+    const RFM9X_READ_MASK = 0x00;
     
     const RFM9X_REG_OP_MODE = 0x01;
     // f_RF = ((X_OSC) * Fr_f ) / (2^19). Resolution is 61.035 Hz if X_OSC = 32MHz
     const RFM9X_REG_FREQUENCY_HIGH = 0x06; // MSB (3 bytes long, contiguous)
-    const X_OSC = 0x1E84800; // 32 MHz
-    const FREQ_STEP = 61.035;
-    
-    // LoRa Mode
-    const CONFIG_BYTE = 0x80; 
-    
-    // CPHA and CPOL must be 0 
-    
     const RFM9X_REG_PA_CONFIG = 0x09;
     const RFM9X_REG_PA_RAMP = 0x0A;
     const RFM9X_REG_OCP = 0x0B;
@@ -34,17 +17,6 @@ class RFM9x {
     const RFM9X_REG_FIFO_RX_CURRENT_ADDR = 0x10; // Start address of last packet received
     
     const RFM9X_REG_IRQ_FLAGS_MASK = 0x11;
-    
-    // Interrupt Masks AND flags
-    const RX_TIMEOUT = 7;
-    const RX_DONE = 6;
-    const PAYLOAD_CRC_ERROR = 5;
-    const VALID_HEADER = 4;
-    const TX_DONE = 3;
-    const CAD_DONE = 2;
-    const FHSS_CHANGE_CHANNEL = 1;
-    const CAD_DETECTED = 0;
-    
     // IRQ flags
     const RFM9X_REG_IRQ_FLAGS = 0x12;
     
@@ -83,11 +55,44 @@ class RFM9x {
     const RFM9X_REG_VERSION = 0x42;
     const RFM9X_REG_TCXO = 0x4B;
     
+    // Default init constants
+    const RFM9X_DEFAULT_FREQUENCY = 915000000;
+    const RFM9X_DEFAULT_BANDWIDTH = "125";
+    const RFM9X_DEFAULT_SF = 7;
+    const RFM9X_DEFAULT_CODING_RATE = "4/5";
+    const RFM9X_DEFAULT_IMPLICIT_HEADER_MODE = false;
+    const RFM9X_DEFAULT_PREAMBLE_LENGTH = 8;
+
+class RFM9x {
+    
+    _spiModule = null;
+    _cs = null;
+    _irqPin = null;
+    _receiveHandler = null;
+    _sendFinished = true;
+    _error = false;
+
+    static FREQ_STEP = 61.035;
+    
+    // LoRa Mode
+    static CONFIG_BYTE = 0x80; 
+    
+    // Interrupt Masks AND flags
+    static RX_TIMEOUT = 7;
+    static RX_DONE = 6;
+    static PAYLOAD_CRC_ERROR = 5;
+    static VALID_HEADER = 4;
+    static TX_DONE = 3;
+    static CAD_DONE = 2;
+    static FHSS_CHANGE_CHANNEL = 1;
+    static CAD_DETECTED = 0;
+    
+    
     // -------------------- Some Tables --------------------------- //
     
     // This table maps bandwidth strings (in kHz) to the values which go in the 
     // corresponding register
-    const BWTABLE = {
+    static BWTABLE = {
         "7.8" : 0x00,
         "10.4" : 0x01,
         "15.6" : 0x02,
@@ -102,7 +107,7 @@ class RFM9x {
     
     // This table maps coding rate strings to the values which go in the corresponding
     // register
-    const CRTABLE = {
+    static CRTABLE = {
         "4/5": 0x01,
         "4/6": 0x02,
         "4/7": 0x03,
@@ -110,22 +115,16 @@ class RFM9x {
     };
     
     // Operating modes
-    const SLEEP = 0x00;
-    const STANDBY = 0x01;
-    const FSTX = 0x02;
-    const TX = 0x03;
-    const FSRX = 0x04;
-    const RXCONTINUOUS = 0x05;
-    const RXSINGLE = 0x06;
-    const CAD = 0x07;
+    static SLEEP = 0x00;
+    static STANDBY = 0x01;
+    static FSTX = 0x02;
+    static TX = 0x03;
+    static FSRX = 0x04;
+    static RXCONTINUOUS = 0x05;
+    static RXSINGLE = 0x06;
+    static CAD = 0x07;
 
-    // Default init constants
-    const DEFAULT_FREQUENCY = 915000000;
-    const DEFAULT_BANDWIDTH = "125";
-    const DEFAULT_SF = 7;
-    const DEFAULT_CODING_RATE = "4/5";
-    const DEFAULT_IMPLICIT_HEADER_MODE = false;
-    const DEFAULT_PREAMBLE_LENGTH = 8;
+    
     
     
     constructor(spi, irq, cs=null) {
@@ -139,12 +138,12 @@ class RFM9x {
         setMode(SLEEP); // need to do this to go into LoRa mode
         
         // Defaults
-        setFrequency(DEFAULT_FREQUENCY);
-        setBandwidth(DEFAULT_BANDWIDTH);
-        setSpreadingFactor(DEFAULT_SF);
-        setCodingRate(DEFAULT_CODING_RATE);
-        setImplicitHeaderMode(DEFAULT_IMPLICIT_HEADER_MODE);
-        setPreambleLength(DEFAULT_PREAMBLE_LENGTH);
+        setFrequency(RFM9X_DEFAULT_FREQUENCY);
+        setBandwidth(RFM9X_DEFAULT_BANDWIDTH);
+        setSpreadingFactor(RFM9X_DEFAULT_SF);
+        setCodingRate(RFM9X_DEFAULT_CODING_RATE);
+        setImplicitHeaderMode(RFM9X_DEFAULT_IMPLICIT_HEADER_MODE);
+        setPreambleLength(RFM9X_DEFAULT_PREAMBLE_LENGTH);
 
         _configISR();
         
@@ -185,7 +184,7 @@ class RFM9x {
     
     function _writeToTXBuffer(data, len) {
         local write = blob(len + 1);
-        write[0] = (RFM9X_FIFO | WRITE_MASK);
+        write[0] = (RFM9X_FIFO | RFM9X_WRITE_MASK);
         for(local i = 0; i < len; ++i) {
             write[i+1] = data[i];
         }
@@ -241,7 +240,7 @@ class RFM9x {
         writeReg(RFM9X_REG_FIFO_ADDR_PTR, fifoRXPointer);
         local b = blob(numBytes);
         local fifo = blob(1);
-        fifo[0] = RFM9X_FIFO | READ_MASK;
+        fifo[0] = RFM9X_FIFO | RFM9X_READ_MASK;
         _csLow();
         // initiate RFM9X_FIFO read
         _spiModule.writeread(fifo);
@@ -344,7 +343,7 @@ class RFM9x {
         setMode(SLEEP);
         local reg_freq = (freq/FREQ_STEP).tointeger();
         local freq_blob = blob(4); // big-endian blob
-        freq_blob[0] = RFM9X_REG_FREQUENCY_HIGH | WRITE_MASK;
+        freq_blob[0] = RFM9X_REG_FREQUENCY_HIGH | RFM9X_WRITE_MASK;
         freq_blob[1] = (reg_freq >> 16) & 0xFF;
         freq_blob[2] = (reg_freq >> 8) & 0xFF;
         freq_blob[3] = (reg_freq) & 0xFF;
@@ -356,7 +355,7 @@ class RFM9x {
     
     function writeReg(address, data) {
         local b = blob();
-        b.writen(address | WRITE_MASK, 'b');
+        b.writen(address | RFM9X_WRITE_MASK, 'b');
         b.writen(data, 'b');
         _csLow();
         _spiModule.writeread(b);
