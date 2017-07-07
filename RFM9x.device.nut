@@ -85,7 +85,7 @@ const RFM9X_DEFAULT_FREQUENCY = 915000000;
 const RFM9X_DEFAULT_BANDWIDTH = "125";
 const RFM9X_DEFAULT_SF = 7;
 const RFM9X_DEFAULT_CODING_RATE = "4/5";
-const RFM9X_DEFAULT_IMPLICIT_HEADER_MODE = false;
+const RFM9X_DEFAULT_IMPLICIT_HEADER_MODE = 0;
 const RFM9X_DEFAULT_PREAMBLE_LENGTH = 8;
 
 const RFM9X_FREQ_STEP = 61.035;
@@ -160,7 +160,7 @@ class RFM9x {
     }
     
     function init() {
-        setMode(SLEEP); // need to do this to go into LoRa mode
+        setMode(RFM9X_SLEEP); // need to do this to go into LoRa mode
         
         // Defaults
         setFrequency(RFM9X_DEFAULT_FREQUENCY);
@@ -185,19 +185,19 @@ class RFM9x {
         
         if (_sendFinished) {
             _sendFinished = false;
-            setMode(RFM9X_FLAGS.STANDBY);
+            setMode(RFM9X_STANDBY);
             _writeReg(RFM9X_REG_DIO_MAPPING1, 0x40);
             setFifoTxBase(0x00);
             _writeReg(RFM9X_REG_FIFO_ADDR_PTR, 0x00);
 
             // Write the data here
-            writeToTXBuffer(data, len);
+            _writeToTXBuffer(data, len);
             
             _writeReg(RFM9X_REG_PAYLOAD_LENGTH, len);
-            setMode(RFM9X_FLAGS.FSTX);
+            setMode(RFM9X_FSTX);
             imp.sleep(0.0002);
             _sendFinished = false;
-            setMode(TX);
+            setMode(RFM9X_TX);
         } else {
             throw "previous send not finished, could not send data";
         }
@@ -205,12 +205,12 @@ class RFM9x {
     }
     
     function receiveData() {
-        setMode(RFM9X_FLAGS.STANDBY);
+        setMode(RFM9X_STANDBY);
         _writeReg(RFM9X_REG_FIFO_ADDR_PTR, 0x00);
         _writeReg(RFM9X_REG_DIO_MAPPING1, 0x00);
-        setMode(RFM9X_FLAGS.FSRX);
+        setMode(RFM9X_FSRX);
         imp.sleep(0.0002);
-        rf.setMode(RXCONTINUOUS);
+        rf.setMode(RFM9X_RXCONTINUOUS);
     }
     
     function setPayloadLength(len) {
@@ -283,7 +283,7 @@ class RFM9x {
     }
     
     function setFrequency(freq) {
-        setMode(SLEEP);
+        setMode(RFM9X_SLEEP);
         local reg_freq = (freq/RFM9X_FREQ_STEP).tointeger();
         local freq_blob = blob(4); // big-endian blob
         freq_blob[0] = RFM9X_REG_FREQUENCY_HIGH | RFM9X_WRITE_MASK;
@@ -320,11 +320,11 @@ class RFM9x {
         // Active high
         if (_irqPin.read()) {
             local read = _readReg(RFM9X_REG_IRQ_FLAGS);
-            if (read & (1 << RFM9X_PAYLOAD_CRC_ERROR)) {
+            if (read & (1 << RFM9X_FLAGS.PAYLOAD_CRC_ERROR)) {
                 _error = true;
-            } else if (read & (1 << RFM9X_TX_DONE)) {
+            } else if (read & (1 << RFM9X_FLAGS.TX_DONE)) {
                 _sendFinished = true;
-            } else if (read == ((1 << RFM9X_RX_DONE) | (1 << RFM9X_VALID_HEADER))) {
+            } else if (read == ((1 << RFM9X_FLAGS.RX_DONE) | (1 << RFM9X_FLAGS.VALID_HEADER))) {
                 _receive(_readFromRXBuffer());
             }
             
