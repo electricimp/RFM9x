@@ -105,32 +105,6 @@ enum RFM9X_FLAGS {
     RX_TIMEOUT
 };
 
-// -------------------- Some Tables --------------------------- //
-    
-// This table maps bandwidth strings (in kHz) to the values which go in the 
-// corresponding register
-enum RF9X_BWTABLE {
-    "7.8",
-    "10.4",
-    "15.6",
-    "20.8",
-    "31.25",
-    "41.7",
-    "62.5",
-    "125",
-    "250",
-    "500"
-};
-
-// This table maps coding rate strings to the values which go in the corresponding
-// register
-enum RFM9X_CRTABLE = {
-    "4/5" = 0x01,
-    "4/6",
-    "4/7",
-    "4/8"
-};
-
 // Operating modes
 const RFM9X_SLEEP = 0x00;
 const RFM9X_STANDBY = 0x01;
@@ -144,6 +118,32 @@ const RFM9X_CAD = 0x07;
 
 class RFM9x {
     static VERSION = "0.1.0";
+
+    // -------------------- Some Tables --------------------------- //
+    
+    // This table maps bandwidth strings (in kHz) to the values which go in the 
+    // corresponding register
+    static BWTABLE = {
+        "7.8" : 0x00,
+        "10.4" : 0x01,
+        "15.6" : 0x02,
+        "20.8" : 0x03,
+        "31.25": 0x04,
+        "41.7": 0x05,
+        "62.5": 0x06,
+        "125": 0x07,
+        "250" : 0x08,
+        "500": 0x09
+    };
+    
+    // This table maps coding rate strings to the values which go in the corresponding
+    // register
+    static CRTABLE = {
+        "4/5": 0x01,
+        "4/6": 0x02,
+        "4/7": 0x03,
+        "4/8": 0x04
+    };
 
     _spiModule = null;
     _cs = null;
@@ -180,7 +180,7 @@ class RFM9x {
         local len = data.len();
 
         // Ensure that the data string is not larger than the fifo buffer
-        if (len > 0x100) return;
+        if (len > 0xff) return;
 
         
         if (_sendFinished) {
@@ -238,7 +238,7 @@ class RFM9x {
     function setCodingRate(cr) {
         local cur = _readReg(RFM9X_REG_MODEM_CONFIG1);
         local clear = cur & 0xf1; // exclude bits 3-1
-        _writeReg(RFM9X_REG_MODEM_CONFIG1, clear | (RFM9X.CRTABLE[cr] << 1));
+        _writeReg(RFM9X_REG_MODEM_CONFIG1, clear | (CRTABLE[cr] << 1));
     }
     
     function setRxPayloadCRC(state) {
@@ -248,7 +248,7 @@ class RFM9x {
     
     function setBandwidth(bw) {
         local current = _readReg(RFM9X_REG_MODEM_CONFIG1);
-        _writeReg(RFM9X_REG_MODEM_CONFIG1, RFM9X.BWTABLE[bw] << 4 | (current & 0x0f));
+        _writeReg(RFM9X_REG_MODEM_CONFIG1, BWTABLE[bw] << 4 | (current & 0x0f));
     }
     
     function setMode(mode) {
