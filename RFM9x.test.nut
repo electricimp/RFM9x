@@ -27,11 +27,7 @@ class MyTestCase extends ImpTestCase {
 		this.assertTrue(error == "data size error");
 	}
 
-	function sendCb2() {
-		server.log("invalid params callback");
-	}
-
-	function sendCb3(error, data) {
+	function sendCb2(error, data) {
 		this.assertTrue(error == "sending");
 	}
 
@@ -52,7 +48,7 @@ class MyTestCase extends ImpTestCase {
 	}
 
 	function testSendDataTooSoon() {
-		local rf = construct(sendCb3.bindenv(this));
+		local rf = construct(sendCb2.bindenv(this));
 		rf.sendData("test");
 		// The successive calls should occur too quickly for the radio to have finished
 		// transmitting, therefore causing it to produce a "sending" error
