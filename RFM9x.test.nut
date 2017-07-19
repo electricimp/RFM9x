@@ -42,23 +42,13 @@ class MyTestCase extends ImpTestCase {
 		return RFM9x(spi, irq, sendCb);
 	}
 
-	function testSetReceiveHandlerNull() {
-		local rf = construct(null);
-		rf.sendData("test");
-	}
-
-	function testSetReceiveHandlerInvalidNumParams() {
-		local rf = construct(sendCb2.bindenv(this);
-		rf.sendData("test");
-	}
-
 	function testSendDataTooLong() {
 		local rf = construct(sendCb1.bindenv(this));
 		local strTooLong = "";
 		for(local i = 0; i < 0x101; ++i) {
 			strTooLong += "c";
 		}
-		rf.sendData()
+		rf.sendData(strTooLong)
 	}
 
 	function testSendDataTooSoon() {
