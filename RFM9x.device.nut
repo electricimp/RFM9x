@@ -93,7 +93,7 @@ const RFM9X_FREQ_STEP = 61.035;
 // LoRa Mode
 const RFM9X_CONFIG_BYTE = 0x80; 
 
-// Interrupt Masks AND flags
+// Interrupt flags
 enum RFM9X_FLAGS {
     CAD_DETECTED,
     FHSS_CHANGE_CHANNEL,
@@ -149,14 +149,16 @@ class RFM9x {
     _cs = null;
     _irqPin = null;
     _receiveHandler = null;
-    _sendFinished = true;
+    _isSending = false;
     _error = false;    
+    _sendcb = null;
     
-    constructor(spi, intPin, cs=null) {
+    constructor(spi, intPin, sendcb, cs=null) {
         // Assume spi is already initialized, assume cs is already initialized
         _spiModule = spi;
         _irqPin = intPin;
         _cs = cs;
+        _sendcb = sendcb;
     }
     
     function init() {
@@ -180,11 +182,12 @@ class RFM9x {
         local len = data.len();
 
         // Ensure that the data string is not larger than the fifo buffer
-        if (len > 0xff) return;
+        if (len > 0xff) {
+            _sendcb("data size error", null);
+            return;
+        }
 
-        
-        if (_sendFinished) {
-            _sendFinished = false;
+        if (!_isSending) {
             setMode(RFM9X_STANDBY);
             _writeReg(RFM9X_REG_DIO_MAPPING1, 0x40);
             setFifoTxBase(0x00);
@@ -195,11 +198,10 @@ class RFM9x {
             
             _writeReg(RFM9X_REG_PAYLOAD_LENGTH, len);
             setMode(RFM9X_FSTX);
-            imp.sleep(0.0002);
-            _sendFinished = false;
+            _isSending = true;
             setMode(RFM9X_TX);
         } else {
-            throw "previous send not finished, could not send data";
+            _sendcb("sending", data);
         }
         
     }
@@ -209,7 +211,6 @@ class RFM9x {
         _writeReg(RFM9X_REG_FIFO_ADDR_PTR, 0x00);
         _writeReg(RFM9X_REG_DIO_MAPPING1, 0x00);
         setMode(RFM9X_FSRX);
-        imp.sleep(0.0002);
         rf.setMode(RFM9X_RXCONTINUOUS);
     }
     
@@ -266,10 +267,10 @@ class RFM9x {
     
     // Enable a specific interrupt. Avaliable interrupts are in
     // RFM9X_FLAGS
-    function enableInterrupt(mask) {
+    function enableInterrupt(bitnumber) {
         local currentInterrupts = _readReg(RFM9X_REG_IRQ_FLAGS);
         // Mask the interrupt by writing high, therefore enable by writing low
-        local newInterrupts = currentInterrupts & (~ (1<<mask));
+        local newInterrupts = currentInterrupts & (~ (1 << bitnumber));
         _writeReg(RFM9X_REG_IRQ_FLAGS_MASK, newInterrupts);
     }
 
@@ -300,8 +301,8 @@ class RFM9x {
         _receiveHandler = handler;
     }
 
-    function isDoneSending() {
-        return _sendFinished;
+    function isSending() {
+        return _isSending;
     }
     
     function _setInLoRaMode() {
@@ -322,18 +323,20 @@ class RFM9x {
             local read = _readReg(RFM9X_REG_IRQ_FLAGS);
             if (read & (1 << RFM9X_FLAGS.PAYLOAD_CRC_ERROR)) {
                 _error = true;
+                _receive("error", null);
             } else if (read & (1 << RFM9X_FLAGS.TX_DONE)) {
-                _sendFinished = true;
+                _isSending = false;
+                _sendcb("done", null);
             } else if (read == ((1 << RFM9X_FLAGS.RX_DONE) | (1 << RFM9X_FLAGS.VALID_HEADER))) {
-                _receive(_readFromRXBuffer());
+                _receive("valid", _readFromRXBuffer());
             }
             
             clearInterrupts();
         }
     }
 
-    function _receive(data) {
-        _receiveHandler && _receiveHandler(data);
+    function _receive(error, data) {
+        _receiveHandler && _receiveHandler(error, data);
     }
     
     function _writeToTXBuffer(data, len) {

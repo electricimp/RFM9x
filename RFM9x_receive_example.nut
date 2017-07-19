@@ -31,9 +31,21 @@ OTHER DEALINGS IN THE SOFTWARE.
 ***/
 
 // Simple callback for receiving data
-function logData(data) {
-	server.log(data);
+function logData(error, data) {
+    if(error == "crc error") {
+        server.log("uh oh");
+    }
+	else {
+	    server.log(data);
+	}
 }
+
+function sendCB(error, data) {
+    if(error == "sending") {
+        this.send(data);
+    }
+}
+
 
 // You MUST configure and pass a spi module to the constructor
 spi <- hardware.spiBCAD;
@@ -46,7 +58,7 @@ irq <- hardware.pinXD;
 // Note that the imp005 has dedicated chip select pins for its spi modules. This example uses
 // them. For modules without dedicated chip select pins, you MUST configure and
 // pass them to the constructor
-rf <- RFM9x(spi, irq);
+rf <- RFM9x(spi, irq, sendCB);
 
 rf.init();
 
