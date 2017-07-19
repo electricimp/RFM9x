@@ -161,6 +161,8 @@ class RFM9x {
         _sendcb = sendcb;
     }
     
+    // Set radio default settings, configure an interrupt service routine on
+    // the interrupt pin passed to the constructor, and set into LoRa mode
     function init() {
         setMode(RFM9X_SLEEP); // need to do this to go into LoRa mode
         
@@ -178,11 +180,13 @@ class RFM9x {
 
     }
     
+    // Call this method to send data. Data must be a string less than 256
+    // characters
     function sendData(data) {
         local len = data.len();
 
         // Ensure that the data string is not larger than the fifo buffer
-        if (len > 0xff) {
+        if (len > 0x100) {
             _sendcb("data size error", null);
             return;
         }
@@ -206,6 +210,7 @@ class RFM9x {
         
     }
     
+    // Call this method to start listening for packets
     function receiveData() {
         setMode(RFM9X_STANDBY);
         _writeReg(RFM9X_REG_FIFO_ADDR_PTR, 0x00);
@@ -214,53 +219,70 @@ class RFM9x {
         rf.setMode(RFM9X_RXCONTINUOUS);
     }
     
+    // Set the payload length of packets
     function setPayloadLength(len) {
         _writeReg(RFM9X_REG_PAYLOAD_LENGTH, len);
     }
     
+    // Sets the radio into implicit header mode if true, explicit header mode if
+    // false. In implicit header mode, the header is removed from the packet in
+    // order to reduce transmission time. In this case, the payload length, 
+    // error coding rate and prsence of the payload CRC must be manually configured
+    // manually on both sides of the radio link (must be known in advance)
     function setImplicitHeaderMode(state) {
         local cur = _readReg(RFM9X_REG_MODEM_CONFIG1);
         _writeReg(RFM9X_REG_MODEM_CONFIG1, (cur & 0xfe) | (state ? 1 : 0));
     }
     
+    // Sets the length of packet preambles
     function setPreambleLength(len) {
         _writeReg(RFM9X_REG_PREAMBLE_MSB, (len >>8) & 0xff);
         _writeReg(RFM9X_REG_PREAMBLE_LSB, len & 0xff);
     }
     
+    // Sets the start pointer of TX data in FIFO
     function setFifoTxBase(start) {
         _writeReg(RFM9X_REG_FIFO_TX_BASE_ADDR, start & 0xff);
     }
     
+    // Sets the start pointer of RX data in FIFO
     function setFifoRxBase(start) {
         _writeReg(RFM9X_REG_FIFO_RX_BASE_ADDR, start & 0xff);
     }
     
+    // Sets the coding rate
     function setCodingRate(cr) {
         local cur = _readReg(RFM9X_REG_MODEM_CONFIG1);
         local clear = cur & 0xf1; // exclude bits 3-1
         _writeReg(RFM9X_REG_MODEM_CONFIG1, clear | (CRTABLE[cr] << 1));
     }
     
+    // Enable RX payload CRC
     function setRxPayloadCRC(state) {
         local current = _readReg(RFM9X_REG_MODEM_CONFIG2);
         _writeReg(RFM9X_REG_MODEM_CONFIG2, (current & 0xfb) | (state ? 0x04 : 0x00));
     }
     
+    // Sets the bandwidth of the radio
     function setBandwidth(bw) {
         local current = _readReg(RFM9X_REG_MODEM_CONFIG1);
         _writeReg(RFM9X_REG_MODEM_CONFIG1, BWTABLE[bw] << 4 | (current & 0x0f));
     }
     
+    // Sets the mode of the radio. Options are constants: SLEEP, STANDBY, FSTX,
+    // TX, FSRX, RXCONTINUOUS, RXSINGLE, CAD
     function setMode(mode) {
         local current = _readReg(RFM9X_REG_OP_MODE);
         _writeReg(RFM9X_REG_OP_MODE, mode | (current & 0xf8));
     }
         
+    // Clear all interrupt flags
     function clearInterrupts() {
         _writeReg(RFM9X_REG_IRQ_FLAGS, 0xff);
     }
     
+    // Mask all interrupts. Calling this method will prevent the interrupt
+    // pin from being asserted
     function maskAllInterrupts() {
         _writeReg(RFM9X_REG_IRQ_FLAGS_MASK, 0xff);
     }
@@ -274,15 +296,18 @@ class RFM9x {
         _writeReg(RFM9X_REG_IRQ_FLAGS_MASK, newInterrupts);
     }
 
+    // Sets the max payload size of the FIFO buffer
     function setMaxPayload(pl) {
         pl = pl & 0xff;
         _writeReg(RFM9X_REG_MAX_PAYLOAD_LENGTH, pl);
     }
     
+    // Sets the spreading factor of the radio
     function setSpreadingFactor(sf) {
         _writeReg(RFM9X_REG_MODEM_CONFIG2, (sf & 0x0f) << 4);
     }
     
+    // Sets the transmission frequency of the radio
     function setFrequency(freq) {
         setMode(RFM9X_SLEEP);
         local reg_freq = (freq/RFM9X_FREQ_STEP).tointeger();
@@ -297,10 +322,15 @@ class RFM9x {
         _csHigh();
     }
 
+    // Sets the receive handler. The receive handler should take two 
+    // parameters: an error message and the received data. The error message
+    // will either be "error" or "valid". If the message is "error", the
+    // received data parameter will be passed as null. 
     function setReceiveHandler(handler) {
         _receiveHandler = handler;
     }
 
+    // Returns whether the last send operation is ongoing
     function isSending() {
         return _isSending;
     }
