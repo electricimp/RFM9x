@@ -23,10 +23,6 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 class MyTestCase extends ImpTestCase {
 
-	function sendCb2(error, data) {
-		this.assertTrue(error == "sending");
-	}
-
 	function construct(sendCb) {
 		local spi = hardware.spiBCAD;
 		spi.configure(CLOCK_IDLE_LOW | MSB_FIRST | USE_CS_L, 1000);
@@ -68,5 +64,4 @@ class MyTestCase extends ImpTestCase {
 			
 		}.bindenv(this));
 	}
-
 }
