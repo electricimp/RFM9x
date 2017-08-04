@@ -1,4 +1,3 @@
-#require "RFM9x.device.nut:0.1.0"
 /***
 MIT License
 
@@ -25,17 +24,16 @@ ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 ***/    
 
+#require "RFM9x.device.nut:0.1.0"
+
 /***
 *	Example using the HopeRF RFM9x radio transceiver module and the imp005. This device
 *	code transmits data using the module.
 ***/
 
 function sendCB(error, data) {
-    if(error == "sending") {
-        this.send(data);
-    }
-    else {
-        imp.wakeup(1, send);
+    if(error != null) {
+    	imp.wakeup(1, send);
     }
 }
 
@@ -58,7 +56,7 @@ rf.init();
 
 // This function will send data using the module and then call itself again in 5 seconds
 function send() {
-	rf.sendData(testString);
+	rf.sendData(testString, sendCB);
 }
 
 send();

@@ -30,7 +30,6 @@ const RFM9X_WRITE_MASK = 0x80;
 const RFM9X_READ_MASK = 0x00;
 
 const RFM9X_REG_OP_MODE = 0x01;
-// f_RF = ((X_OSC) * Fr_f ) / (2^19). Resolution is 61.035 Hz if X_OSC = 32MHz
 const RFM9X_REG_FREQUENCY_HIGH = 0x06; // MSB (3 bytes long, contiguous)
 const RFM9X_REG_PA_CONFIG = 0x09;
 const RFM9X_REG_PA_RAMP = 0x0A;
@@ -70,9 +69,6 @@ const RFM9X_REG_MAX_PAYLOAD_LENGTH = 0x23;
 const RFM9X_REG_HOP_PERIOD = 0x24;
 const RFM9X_REG_FIFO_RX_BYTE_ADDR = 0x25;
 
-
-// -------------------- Shared Registers ---------------------- //
-
 // DIO mappings are used for interrupts
 
 const RFM9X_REG_DIO_MAPPING1 = 0x40;
@@ -88,6 +84,7 @@ const RFM9X_DEFAULT_CODING_RATE = "4/5";
 const RFM9X_DEFAULT_IMPLICIT_HEADER_MODE = 0;
 const RFM9X_DEFAULT_PREAMBLE_LENGTH = 8;
 
+// f_RF = ((X_OSC) * Fr_f ) / (2^19). Resolution is 61.035 Hz if X_OSC = 32MHz
 const RFM9X_FREQ_STEP = 61.035;
 
 // LoRa Mode
@@ -153,12 +150,12 @@ class RFM9x {
     _error = false;    
     _sendcb = null;
     
-    constructor(spi, intPin, sendcb, cs=null) {
+    constructor(spi, intPin, cs=null) {
         // Assume spi is already initialized, assume cs is already initialized
         _spiModule = spi;
         _irqPin = intPin;
         _cs = cs;
-        _sendcb = sendcb;
+        _cs.configure(DIGITAL_OUT, 1);
     }
     
     // Set radio default settings, configure an interrupt service routine on
@@ -182,7 +179,7 @@ class RFM9x {
     
     // Call this method to send data. Data must be a string less than 256
     // characters
-    function sendData(data) {
+    function sendData(data, sendcb=null) {
         local len = data.len();
 
         // Ensure that the data string is not larger than the fifo buffer
@@ -205,7 +202,8 @@ class RFM9x {
             _isSending = true;
             setMode(RFM9X_TX);
         } else {
-            _sendcb("sending", data);
+            _sendcb = sendcb;
+            if(_sendcb != null) _sendcb("could not send new data while still sending previous data", data);
         }
         
     }
@@ -296,6 +294,15 @@ class RFM9x {
         _writeReg(RFM9X_REG_IRQ_FLAGS_MASK, newInterrupts);
     }
 
+    // Disable a specific interrupt. Available interrupts are in
+    // RFM9X_FLAGS 
+    function disableInterrupt(bitnumber) {
+        local currentInterrupts = _readReg(RFM9X_REG_IRQ_FLAGS);
+        // Mask the interrupt by writing high
+        local newInterrupts = currentInterrupts | (1 << bitnumber);
+        _writeReg(RFM9X_REG_IRQ_FLAGS, newInterrupts);
+    }
+
     // Sets the max payload size of the FIFO buffer
     function setMaxPayload(pl) {
         pl = pl & 0xff;
@@ -353,12 +360,12 @@ class RFM9x {
             local read = _readReg(RFM9X_REG_IRQ_FLAGS);
             if (read & (1 << RFM9X_FLAGS.PAYLOAD_CRC_ERROR)) {
                 _error = true;
-                _receive("error", null);
+                _receive("payload crc error", null);
             } else if (read & (1 << RFM9X_FLAGS.TX_DONE)) {
                 _isSending = false;
-                _sendcb("done", null);
+                _sendcb(null, "done");
             } else if (read == ((1 << RFM9X_FLAGS.RX_DONE) | (1 << RFM9X_FLAGS.VALID_HEADER))) {
-                _receive("valid", _readFromRXBuffer());
+                _receive(null, _readFromRXBuffer());
             }
             
             clearInterrupts();

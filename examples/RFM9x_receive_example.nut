@@ -1,4 +1,3 @@
-#require "RFM9x.device.nut:0.1.0"
 /***
 MIT License
 
@@ -24,6 +23,8 @@ OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 ***/   
+
+#require "RFM9x.device.nut:0.1.0"
 
 /***
 *	Example using the HopeRF RFM9x radio transceiver module and the imp005. This device
