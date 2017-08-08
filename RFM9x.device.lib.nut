@@ -1,28 +1,27 @@
-/***
-MIT License
+// MIT License
+//
+// Copyright 2017 Electric Imp
+//
+// SPDX-License-Identifier: MIT
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be
+// included in all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+// EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+// MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO
+// EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES
+// OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+// ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+// OTHER DEALINGS IN THE SOFTWARE. 
 
-Copyright 2017 Electric Imp
-
-SPDX-License-Identifier: MIT
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO
-EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES
-OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-OTHER DEALINGS IN THE SOFTWARE.
-***/    
 const RFM9X_FIFO = 0x00;
 
 // SPI masks
@@ -41,6 +40,7 @@ const RFM9X_REG_FIFO_RX_BASE_ADDR = 0x0F; // read base address in RFM9X_FIFO dat
 const RFM9X_REG_FIFO_RX_CURRENT_ADDR = 0x10; // Start address of last packet received
 
 const RFM9X_REG_IRQ_FLAGS_MASK = 0x11;
+
 // IRQ flags
 const RFM9X_REG_IRQ_FLAGS = 0x12;
 
@@ -70,7 +70,6 @@ const RFM9X_REG_HOP_PERIOD = 0x24;
 const RFM9X_REG_FIFO_RX_BYTE_ADDR = 0x25;
 
 // DIO mappings are used for interrupts
-
 const RFM9X_REG_DIO_MAPPING1 = 0x40;
 const RFM9X_REG_DIO_MAPPING2 = 0x41;
 const RFM9X_REG_VERSION = 0x42;
@@ -161,7 +160,8 @@ class RFM9x {
     // Set radio default settings, configure an interrupt service routine on
     // the interrupt pin passed to the constructor, and set into LoRa mode
     function init() {
-        setMode(RFM9X_SLEEP); // need to do this to go into LoRa mode
+        // need to do this to go into LoRa mode
+        setMode(RFM9X_SLEEP); 
         
         // Defaults
         setFrequency(RFM9X_DEFAULT_FREQUENCY);
@@ -177,8 +177,7 @@ class RFM9x {
 
     }
     
-    // Call this method to send data. Data must be a string less than 256
-    // characters
+    // Call this method to send data. Data must be a string less than 256 characters
     function sendData(data, sendcb=null) {
         local len = data.len();
 
@@ -203,7 +202,7 @@ class RFM9x {
             setMode(RFM9X_TX);
         } else {
             _sendcb = sendcb;
-            if(_sendcb != null) _sendcb("could not send new data while still sending previous data", data);
+            if (_sendcb != null) _sendcb("could not send new data while still sending previous data", data);
         }
         
     }

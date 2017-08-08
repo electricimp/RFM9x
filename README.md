@@ -2,14 +2,17 @@
 
 This library provides driver code for HopeRF's RFM95/96/97/98(W) Low-Power Long Range LoRa Technology Transceiver Modules.
 
+To add this library to your project, add #require "RFM9x.device.lib.nut:0.1.0" to the top of your device code.
+
 # Class Usage
 
-## Constructor: RFM9x(spi, intPin[, cs]) 
+## Constructor: RFM9x(*spi, intPin[, cs]*) 
 The constructor takes two required parameters: *spi*, the spi lines that the chip is connected to, and *intPin*, the hardware pin on the imp 
 being used for interrupts from the chip. spi must be pre-configurd before being passed to the constructor. The optional third argument,
 *cs*, is the chip select pin being used. If it is not passed to the constructor, it is assumed that you are using an imp with a
 dedicated chip select pin for the spi module you have passed. NOTE: *spi* must be configured with clock polarity
 and clock phase low.
+
 #### Example
 ```
 spiModule <- hardware.spiBCAD;
@@ -65,7 +68,9 @@ string parameter as its input. It will be called whenever data is received, with
 
 ## receiveData()
 The *receiveData()* method puts the module into continuous RX mode. This will allow the RX_DONE flag to be set, meaning that when
-valid data is received, the callback passed to setReceiveHandler will be called with the received data as its argument
+valid data is received, the callback passed to setReceiveHandler will be called with the received data as its argument. 
+
+**Please note:** When the radio is sending it cannot receive data. Therefor if sendData() is called after receiveData() the module will no longer be in continuous RX mode.
 
 #### Example
 ```
@@ -204,4 +209,4 @@ rf.setFrequency(915000000);
 
 
 # License
-The RFM9X library is licensed under MIT [license](https://github.com/electricimp/RFM9x/blob/develp/LICENSE)
+The RFM9X library is licensed under MIT [license](./LICENSE)
