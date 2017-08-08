@@ -141,7 +141,7 @@ rf.maskAllInterrupts();
 
 ### setPayloadLength(*length*)
 
-The *setPayloadLength()* method takes an integer between 0 and 255, and should only be necessary in implicit header mode. By default, this is 0x01.
+The *setPayloadLength()* method takes an integer between 0 and 255, and should only be necessary in implicit header mode. By default, this is 1.
 
 #### Example
 
@@ -171,7 +171,7 @@ rf.setPreambleLength(6);
 
 ### setFifoTxBase(*start*)
 
-The *setFifoTxBase()* method sets the start of TX data in the FIFO buffer. By default, this is 0x00, ie. the actual start of the buffer. 
+The *setFifoTxBase()* method sets the start of TX data in the FIFO buffer. By default, this is 0, ie. the actual start of the buffer. 
 
 The FIFO buffer is a shared buffer for sending and receiving. Because the radio cannot receive and transmit simultaneously, this library sets the TX pointer to 0 when transmitting so that transmissions can use the full length of the FIFO buffer (256 bytes). If desired, this method could be used along with other code to use part of the buffer for received data and another part for transmitted data.
 
@@ -184,7 +184,7 @@ rf.setFifoTxBase(0x80);
 
 ### setFifoRxBase(*start*)
 
-The *setFifoRxBase()* method sets the start of RX data in the FIFO buffer. By default, this is 0x00, ie. the actual start of the buffer. 
+The *setFifoRxBase()* method sets the start of RX data in the FIFO buffer. By default, this is 0, ie. the actual start of the buffer. 
 
 The FIFO buffer is a shared buffer for sending and receiving. Because the radio cannot receive and transmit simultaneously, this library sets the RX pointer to 0 when receiving so that received data can be placed across the full length of the FIFO buffer (256 bytes). If desired, this method could be used along with other code to use part of the buffer for received data and another part for transmitted data.
 
@@ -207,7 +207,7 @@ rf.setCodingRate("4/6");
 
 ### setRxPayloadCRC(*state*)
 
-The *setRxPayloadCRC()* method takes a boolean indicating whether received packet headers indicate that CRC is active. There is not a default value.
+The *setRxPayloadCRC()* method takes a boolean indicating whether received packet headers indicate that CRC is active. There is no default value.
 
 #### Example
 
