@@ -1,17 +1,29 @@
 # RFM9x
 
-This library provides driver code for HopeRF's RFM95/96/97/98(W) Low-Power Long Range LoRa Technology Transceiver Modules.
+This library provides driver code for HopeRF’s [RFM95/96/97/98(W)](http://www.hoperf.com/upload/rf/RFM95_96_97_98W.pdf) Low-Power Long-Range (LoRa) transceiver modules.
 
-# Class Usage
+**To add this library to your project, add** `#require "RFM9x.device.lib.nut:0.1.0"` **to the top of your device code.**
 
-## Constructor: RFM9x(spi, intPin[, cs]) 
-The constructor takes two required parameters: *spi*, the spi lines that the chip is connected to, and *intPin*, the hardware pin on the imp 
-being used for interrupts from the chip. spi must be pre-configurd before being passed to the constructor. The optional third argument,
-*cs*, is the chip select pin being used. If it is not passed to the constructor, it is assumed that you are using an imp with a
-dedicated chip select pin for the spi module you have passed. NOTE: *spi* must be configured with clock polarity
-and clock phase low.
+## Class Usage
+
+### Constructor: RFM9x(*spi, intPin[, cs]*) 
+
+The constructor takes the following parameters:
+
+| Parameter | Default | Description |
+| --- | --- | --- |
+| *spi* | N/A | The imp SPI bus that the RFMx chip is connected to |
+| *intPin* | N/A | The imp GPIO pin being used for interrupts from the chip |
+| *cs* | Null | The imp chip select pin being used |
+
+The SPI bus must be pre-configured before being passed to the constructor, and must be configured with clock polarity and clock phase low (see the example, below).
+
+If no chip select pin is provided to the constructor, it is assumed that you are using an imp with a dedicated chip select pin for the SPI bus you have passed.
+
 #### Example
+
 ```
+// Configure for imp005
 spiModule <- hardware.spiBCAD;
 spiModule.configure(CLOCK_IDLE_LOW | MSB_FIRST | USE_CS_L, 1000);
 
@@ -20,188 +32,239 @@ intPin <- hardware.pinXD;
 rf <- RFM9x(spiModule, intPin);
 ```
 
-# Class Methods
+## Class Methods
 
-## init()
-The *init()* method configures several settings to defaults. It sets frequency to 915MHz, bandwidth to 125kHz, spreading factor to 7, 
-coding rate to 4/5, implicit header mode off, preamble length to 8, and payload length to 10. It also configures the isr for
-interrupts on the irq pin passed to the constructor. Finally, it sets the chip into LoRa mode.
+### init()
 
-#### Example
-```
-rf.init();
-```
+The *init()* method configures several settings to defaults. It sets frequency to 915MHz, bandwidth to 125kHz, spreading factor to 7, coding rate to 4/5, implicit header mode off, preamble length to 8, and payload length to 10. It also configures the ISR for interrupts on the IRQ pin passed to the constructor. Finally, it sets the chip into LoRa mode.
 
-## sendData(*data*[, *sendcb*]) 
-The *sendData(data)* method sends a *data* string that is no more than 256 characters. If a previous *data* string has not finished transmitting, the method will not send the string. You should also
-provide a sending callback, *sendcb*, which should be prepared to 
-take two parameters: an error message, and some data string. The
-error message will either be "data size error" if the data you tried
-to send exceed 256 bytes, "could not send new data while sending previous data" if previous data was still sending, or null if the send was successful. If *sendcb* is passed "could not send new data while sending previous data", it will be passed the data you tried to send as its second argument. Otherwise, the second argument will be null.
+### sendData(*data[, sendCallback]*) 
+
+The *sendData()* method transmits a string, passed in as *data*, that is no more than 256 characters. If a previous *data* string has not finished transmitting, the method will not send the string. To detect this, you should also provide a callback function, *sendCallback*, which will be called when the data is sent or an error occurs. 
+
+The callback should take two parameters, both strings. The first will contain an error message if error has occurred, or `null` if the transmission was successful. The error message will either be `"data size error"` if the data you tried to send exceeded 256 bytes, or `"could not send new data while sending previous data"` if previous data was still sending when *sendData()* was called. In the latter case, the second parameter will contain the data you tried to send, otherwise it will be `null`.
 
 #### Example
+
 ```
-function mySendCb(error, data) {
-	if(error == null) {
-		server.log("Hooray! Data was successfully sent.");
-	}
+function mySendCallback(error, data) {
+    if (error == null) {
+        // Transmission success
+        server.log("Data was successfully sent.");
+    } else if (error == "could not send new data while sending previous data") {
+        // Could not sent data because other data was still being sent, so try again
+        server.error("Data was not sent – will re-send");
+        rf.sendData(data, mySendCallback);
+    } else {
+        server.error("Send failed - data too large");
+    }
 }
-rf.sendData("hello world!", mySendCb);
+
+rf.sendData("Hello, World!", mySendCallback);
 ```
 
-## isSending()
-The *isSending()* method will return whether the last message to be transmitted is still sending
+### isSending()
+
+The *isSending()* method will return `true` if the most recently sent message is still transmitting, otherwise `false`.
 
 #### Example
+
 ```
-if(!rf.isSending()) {
-  rf.sendData("hello again!");
-}
+if (!rf.isSending()) rf.sendData("Hello again!");
 ```
 
-## setReceiveHandler(*handler*)
-The *setReceiveHandler(handler)* method takes a function as its parameter. This function should be prepared to take a single
-string parameter as its input. It will be called whenever data is received, with the received data passed to it as its parameter
+### setReceiveHandler(*handler*)
 
-## receiveData()
-The *receiveData()* method puts the module into continuous RX mode. This will allow the RX_DONE flag to be set, meaning that when
-valid data is received, the callback passed to setReceiveHandler will be called with the received data as its argument
+The *setReceiveHandler()* method takes a function as its parameter. This function should be prepared to take a single
+string parameter as its input. It will be called whenever data is received, with the received data passed to it as its parameter.
 
 #### Example
+
+```
+rf.setReceiveHandler(function(receivedData) {
+    server.log("Received message: " + receivedData);
+});
+```
+
+### receiveData()
+
+The *receiveData()* method puts the module into continuous RX mode. This will allow the *RX_DONE* flag, which indicates when valid data is received, to be set and the callback passed to *setReceiveHandler()* to be called with the received data as its argument. 
+
+**Note** When the radio is sending it cannot receive data. Therefore if *sendData()* is called after *receiveData()*, the module will no longer be in continuous RX mode.
+
+#### Example
+
 ```
 function receiveHandler(data) {
-  server.log(data);
+    server.log(data);
 }
+
+// Register the handler for received data
 rf.setReceiveHandler(receiveHandler);
-rf.receiveData(); // receiveHandler will be called when a valid packet is received
+
+// Put the radio into receive mode
+rf.receiveData(); 
 ```
 
-## maskAllInterrupts() 
-The *maskAllInterrupts()* method will mask all interrupts.
+## enableInterrupt(*trigger*)
+
+The *enableInterrupt()* method will enable the interrupt corresponding to the *trigger* parameter. The *trigger* indicates the event on which the interrupt will be triggered and should be one of the following constants in the *RFM9X_FLAGS* enumeration: *RX_TIMEOUT*, *RX_DONE*, *PAYLOAD_CRC_ERROR*, *VALID_HEADER*, *TX_DONE*, *CAD_DONE*, *FHSS_CHANGE_CHANNEL* or *CAD_DETECTED*.
 
 #### Example
-```
-rf.maskAllInterrupts(); // Now the interrupt pin will not be asserted by the rf module
-```
 
-## enableInterrupt(*bitnumber*)
-The *enableInterrupt(bitnumber)* method will enable the interrupt corresponding to the *bitnumber* parameter. The *bitnumber* parameter should be one of the constants in the RFM9X_FLAGS enum variable corresponding to interrupts. These are RX_TIMEOUT, RX_DONE, PAYLOAD_CRC_ERROR, VALID_HEADER, TX_DONE, CAD_DONE, FHSS_CHANGE_CHANNEL, and CAD_DETECTED.
-
-#### Example
 ```
 rf.enableInterrupt(RFM9X_FLAGS.CAD_DONE);
 ```
 
-## disableInterrupt(*bitnumber*)
-The *disableInterrupt(bitnumber)* method will disable the interrupt corresponding to the *bitnumber* parameter. The *bitnumber* parameter should be one of the constants in the RFM9X_FLAGS enum variable corresponding to interrupts. These are RX_TIMEOUT, RX_DONE, PAYLOAD_CRC_ERROR, VALID_HEADER, TX_DONE, CAD_DONE, FHSS_CHANGE_CHANNEL, and CAD_DETECTED.
+## disableInterrupt(*trigger*)
+
+The *disableInterrupt()* method will disable the interrupt corresponding to the *trigger* parameter. The *trigger* indicates the event on which the interrupt was previously set be triggered and should be one of the following constants in the *RFM9X_FLAGS* enumeration: *RX_TIMEOUT*, *RX_DONE*, *PAYLOAD_CRC_ERROR*, *VALID_HEADER*, *TX_DONE*, *CAD_DONE*, *FHSS_CHANGE_CHANNEL* or *CAD_DETECTED*.
 
 #### Example
+
 ```
 rf.disableInterrupt(RFM9X_FLAGS.CAD_DONE);
 ```
 
-## setters
-The following methods are available to set various radio parameters:
+## maskAllInterrupts()
 
-### setPayloadLength(*len*)
-The *setPayloadLength(len)* method takes a length 0-255 as a parameter, and should only be necessary in implicit header mode. By default, this is 0x01
+The *maskAllInterrupts()* method will prevent the interrupt pin from being asserted, but does not clear any interrupts you have set.
 
 #### Example
+
+```
+// Set the interrupt pin not to be asserted by the RF module
+rf.maskAllInterrupts(); 
+```
+
+## Radio Parameter Setter Methods
+
+### setPayloadLength(*length*)
+
+The *setPayloadLength()* method takes an integer between 0 and 255, and should only be necessary in implicit header mode. By default, this is 1.
+
+#### Example
+
 ```
 rf.setPayloadLength(5);
 ```
 
 ### setImplicitHeaderMode(*state*) 
-The *setImplicitHeaderMode(state)* method takes a boolean indicating whether to operate in implicit header mode. By default, this is false
+
+The *setImplicitHeaderMode()* method takes a boolean indicating whether to operate in implicit header mode. By default, this is `false`.
 
 #### Example
+
 ```
 rf.setImplicitHeaderMode(true);
 ```
 
-### setPreambleLength(*len*) 
-The *setPreambleLength(len)* method takes a two byte parameter for the length of the preamble. By default, this is 8
+### setPreambleLength(*length*) 
+
+The *setPreambleLength()* method takes an integer between 0 and 65535 to indicate the length of the preamble. By default, this is 8.
 
 #### Example
+
 ```
 rf.setPreambleLength(6);
 ```
 
-### setFifoTxBase(*start*) 
-The *setFifoTxBase(start)* method sets the start of Tx data in the FIFO buffer. By default, this is 0x00. A note about the FIFO buffer: it is a shared buffer for sending and receiving. Because the device cannot be in two modes simulatenously (i.e. receive and transmit), this library will set the TX pointer to 0 when transmitting so that transmissions can use the full length of the FIFO buffer (256 bytes). If desired, this method could be used along with other code to use part of the buffer for received data and another part for transmitted data.
+### setFifoTxBase(*start*)
+
+The *setFifoTxBase()* method sets the start of TX data in the FIFO buffer. By default, this is 0, ie. the actual start of the buffer. 
+
+The FIFO buffer is a shared buffer for sending and receiving. Because the radio cannot receive and transmit simultaneously, this library sets the TX pointer to 0 when transmitting so that transmissions can use the full length of the FIFO buffer (256 bytes). If desired, this method could be used along with other code to use part of the buffer for received data and another part for transmitted data.
 
 #### Example
+
 ```
-rf.setFifoTxBase(0x7f);
+// Set the TX FIFO to half-way into the buffer
+rf.setFifoTxBase(0x80);
 ```
 
-### setFifoRxBase(*start*) 
-The *setFifoRxBase(start)* method sets the start of Rx data in the FIFO buffer. By default, this is 0x00. A note about the FIFO buffer: it is a shared buffer for sending and receiving. Because the device cannot be in two modes simulatenously (i.e. receive and transmit), this library will set the RX pointer to 0 when transmitting so that receptions can use the full length of the FIFO buffer (256 bytes). If desired, this method could be used along with other code to use part of the buffer for received data and another part for transmitted data.
+### setFifoRxBase(*start*)
 
-#### Example
-```
-rf.setFifoRxBase(0x00);
-```
+The *setFifoRxBase()* method sets the start of RX data in the FIFO buffer. By default, this is 0, ie. the actual start of the buffer. 
 
-### setCodingRate(*cr*) 
-The *setCodingRate(cr)* method sets the coding rate. It takes a parameter which is mapped via a table. The available values are 4/5, 4/6, 4/7,
-and 4/8. These should be passed as strings like so: "4/5". By default, this is 4/5
+The FIFO buffer is a shared buffer for sending and receiving. Because the radio cannot receive and transmit simultaneously, this library sets the RX pointer to 0 when receiving so that received data can be placed across the full length of the FIFO buffer (256 bytes). If desired, this method could be used along with other code to use part of the buffer for received data and another part for transmitted data.
 
 #### Example
+
+```
+// Set the RX FIFO to half-way into the buffer
+rf.setFifoRxBase(0x80);
+```
+
+### setCodingRate(*rate*)
+
+The *setCodingRate()* method sets the coding rate. It takes a string value. The available values are `"4/5"`, `"4/6"`, `"4/7"` and `"4/8"`. By default, this is `"4/5"`.
+
+#### Example
+
 ```
 rf.setCodingRate("4/6");
 ```
 
-### setRxPayloadCRC(*state*) 
-The *setRxPayloadCRC(state)* method takes a boolean indicating whether received packet headers indicate CRC being on. There is not a default value.
+### setRxPayloadCRC(*state*)
+
+The *setRxPayloadCRC()* method takes a boolean indicating whether received packet headers indicate that CRC is active. There is no default value.
 
 #### Example
+
 ```
 rf.setRxPayloadCRC(true);
 ``` 
 
-### setBandwidth(*bw*)
-The *setBandwidth(bw)* method takes sets the bandwidth for the transceiver. It takes a parameter which is mapped via a table. By default, this is 125kHz.
-The available values in kHz are 7.8, 10.4, 15.6, 20.8, 31.25, 41.7, 62.5, 125, 250, 500. These should be passed as strings like so: "125"
+### setBandwidth(*bandwidth*)
+
+The *setBandwidth()* method takes sets the bandwidth in kHz for the transceiver. The value is a string and the available values are: `"7.8"`, `"10.4"`, `"15.6"`, `"20.8"`, `"31.25"`, `"41.7"`, `"62.5"`, `"125"`, `"250"` and `"500"`. By default, this is 125kHz.
 
 #### Example
+
 ```
 rf.setBandwidth("250");
 ```
 
-### setMode(*mode*) 
-The *setMode(mode)* method sets the *mode* of the chip. The available modes, which are class constants, are RFM9X_SLEEP, RFM9X_STANDBY, RFM9X_FSTX,
-RFM9X_TX, RFM9X_FSRX, RFM9X_RXCONTINUOUS, RFM9X_RXSINGLE, and RFM9X_CAD. They should be passed to setMode as its sole parameter. By default, this is STANDBY
+### setMode(*mode*)
+
+The *setMode()* method sets the current operating mode of the chip. The available modes, which are class constants, are: *RFM9X_SLEEP*, *RFM9X_STANDBY*, *RFM9X_FSTX*, *RFM9X_TX*, *RFM9X_FSRX*, *RFM9X_RXCONTINUOUS*, *RFM9X_RXSINGLE* and *RFM9X_CAD*. By default, this is *RFM9X_STANDBY*.
 
 #### Example
+
 ```
 rf.setMode(RFM9X_RXSINGLE);
 ```
 
-### setSpreadingFactor(*sf*)
-The *setSpreadingFactor(sf)* method sets the spreading factor of the chip. Only 6-12 can be passed as parameters
+### setSpreadingFactor(*factor*)
+
+The *setSpreadingFactor()* method sets the spreading factor of the chip. Only values between 6 and 12 inclusive can be passed as parameters.
 
 #### Example
+
 ```
 rf.setSpreadingFactor(8);
 ```
 
-### setMaxPayload(*pl*)
-The *setMaxPayload(pl)* method sets the maximum payload size. The default value is 0xff
+### setMaxPayload(*size*)
+
+The *setMaxPayload()* method sets the maximum payload size in bytes. The default value is 256 bytes.
 
 #### Example
+
 ```
 rf.setMaxPayload(0x90);
 ```
 
-### setFrequency(*freq*)
-The *setFrequency(freq)* method sets the desired frequency for the chip. See the datasheet for specifics on which frequencies can be used
+### setFrequency(*frequency*)
+
+The *setFrequency()* method sets the desired frequency (in Hertz) for the chip. Please see [the datasheet](http://www.hoperf.com/upload/rf/RFM95_96_97_98W.pdf) for details of which frequencies can be used.
 
 #### Example
+
 ```
 rf.setFrequency(915000000);
 ```
 
-
 # License
-The RFM9X library is licensed under MIT [license](https://github.com/electricimp/RFM9x/blob/develp/LICENSE)
+
+The RFM9X library is licensed under MIT [license](./LICENSE)
